@@ -1,1 +1,0 @@
-testcases/library.scm:2:1: error: Cyclic reference ./testcases/cyclic_load.scm
