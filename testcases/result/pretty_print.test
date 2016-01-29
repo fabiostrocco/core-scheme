@@ -1,0 +1,14 @@
+(define x 
+	0)
+
+(define y 
+	(lambda (xy )
+		(<var(x) : local_0> <var(y) : local_1> )))
+
+(define z 
+	(set! <var(x) : Global(global_x)> 1))
+
+(if <var(x) : Global(global_x)>
+    (<var(y) : Global(global_y)> (lambda (x)
+    	<var(x) : local_0>) <var(x) : Global(global_x)> )
+    0)

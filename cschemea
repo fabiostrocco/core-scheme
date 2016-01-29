@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [ $# == "1" ]; then
+  if ! [ -e $1 ]; then
+    echo "Source scheme file not found '$1'"
+    exit
+  fi
+else
+  echo "Usage: fschemec <filename>"
+  exit
+fi
+
+./csc-comp --mode=analysis $1

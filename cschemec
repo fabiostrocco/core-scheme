@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [ $# == "1" ]; then
+  if ! [ -e $1 ]; then
+    echo "Source scheme file not found '$1'"
+    exit
+  fi
+else
+  echo "Usage: fschemec <filename>"
+  exit
+fi
+
+RUNTIME=./runtime
+
+OUT=$1.generated
+rm -rf $OUT
+mkdir $OUT
+./csc-comp --mode=llvm $1 2> $OUT/intermediate.ll
+llvm-link $OUT/intermediate.ll $RUNTIME/runtime.ll -o $OUT/object.o
+llc -filetype=asm $OUT/object.o
+gcc -O3 $OUT/object.o.s $RUNTIME/gcc-runtime.c -o $1.out
