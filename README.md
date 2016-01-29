@@ -53,7 +53,7 @@ You can test the formatter using the following instruction
 ```
 It will pretty print "test.scm" and all the referenced programs.
 
-FSCHEME GRAMMAR
+CORE SCHEME GRAMMAR
 ----------------------------
 
 CScheme is a minimal (turing-complete) version of scheme.
