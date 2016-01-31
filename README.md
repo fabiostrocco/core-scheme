@@ -1,21 +1,17 @@
-Core Scheme is a subset of scheme, with the purpose of illustrating how to build 
-compilers and interpreters. 
-This project contains a compiler from CSCheme to x86 assembly written in C++ with LLVM and a CScheme interpreter.
+Core Scheme is a subset of scheme, with the purpose of illustrating how to build compilers and interpreters.
+
+This project contains a compiler from CScheme to x86 assembly written in C++ with LLVM and a Cscheme interpreter.
 
 HOW TO COMPILE THE COMPILER
 ----------------------------
 
-Please use **clang 3.4-1** and Linux Ubnutu or an x86 compatible machine
+Please use **clang 3.4-1** and Linux Ubnutu or an x86 compatible machine.
 Type make to start the compilation.
 
-Please note that earlier or later **LLVM** and **CLANG** installations may compile this code.
+Please note that if using later or earlier verions of **LLVM** and **CLANG** this project may not compile.
 
 HOW TO USE THE COMPILER
 ----------------------------
-
-You can find a file named "test.scm" in this directory.
-It contains a cscheme sample file. Alternatively you can just
-type test to compile the test.scm file.
 
 The infrastructure toolchain contains the following programs:
 
@@ -25,7 +21,7 @@ The infrastructure toolchain contains the following programs:
             lexical scoping resolution informations
 
 The former 3 applications are based on csc-comp, that is the compiler/interpreter implementaion in C++.
-You can try these tools on "test.scm".
+You can try these tools on "test.scm": a simple scheme file reading a number and printing its factorial.
 
 To test the compiler write
 ```shell
@@ -46,12 +42,12 @@ Similarly, you can have test the interpreter as follows
 3
 ```
 
-You can test the formatter using the following instruction
+You can test the analyzer using the following instruction
 
 ```shell
 ./cschemea test.scm
 ```
-It will pretty print "test.scm" and all the referenced programs.
+It will pretty print "test.scm" and all the referenced programs, with lexical analysis informations.
 
 CORE SCHEME GRAMMAR
 ----------------------------
@@ -71,3 +67,4 @@ default names: +,-,*,/,=,<,>,read,write
 
 Where 'PATH' represents a string, 'N' represets a natural number, and 'x' an identifier name 
 (without numbers, only letters and some special characters are allowed).
+Moreover, whitespaces and inline comments are allowed.

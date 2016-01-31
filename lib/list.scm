@@ -1,4 +1,8 @@
+; List library
+
 (load "./lib/core.scm")
+
+; Pair encoding using the Cantor pair encoding
 
 (define cons-acc
   (lambda (x y acc)
@@ -35,6 +39,8 @@
 (define cdr
   (lambda (p)
     (cdr-acc p 0 0 0)))
+
+; Definition of lists based on pairs
 
 (define nil 0)
 

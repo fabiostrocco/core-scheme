@@ -45,8 +45,27 @@ namespace cscheme {
 
     int initial_position_ = pos_;
 
-    do { curr_char = Eat(); } while(Empty(curr_char));
-    if(curr_char == EOF) return UpdateList(new EOFToken(prefix_, pos_, pos_, line_));
+    /* Ignore white spaces */
+
+    do { 
+      curr_char = Eat();
+    } while(Empty(curr_char));
+
+    /* Ignore inline comments */
+
+    while(curr_char == ';') {
+      while(curr_char != '\n') {
+	if(curr_char == EOF) {
+	  return UpdateList(new EOFToken(prefix_, pos_, pos_, line_));
+	}
+	curr_char = Eat();
+      }
+      curr_char = Eat();
+    }
+
+    if(curr_char == EOF) {
+      return UpdateList(new EOFToken(prefix_, pos_, pos_, line_));
+    }
 
     if(curr_char == '(' || curr_char == '[')
       return UpdateList(new BraceToken(prefix_, "(", pos_, pos_ + 1, line_));
@@ -109,7 +128,10 @@ namespace cscheme {
     exit(EXIT_LEXER_ERROR);
   }
 
-  bool Lexer::Empty(char ch) { return ch ==' ' || ch =='\t' || ch =='\n'; }
+  bool Lexer::Empty(char ch) {
+    return ch ==' ' || ch =='\t' || ch =='\n';
+  }
+
   char Lexer::Eat() {
     char result;
     if(is_back_) {

@@ -46,7 +46,7 @@ namespace cscheme {
     bool eof_state_;
     Token* p_token_ = NULL;
     Token* pp_token_ = NULL;
-    int track_ = 0;//0 = eat next token, 1 = return pToken, 2 = return ppToken
+    int track_ = 0; //0 = eat next token, 1 = return pToken, 2 = return ppToken
   };
 
 };

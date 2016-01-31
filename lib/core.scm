@@ -1,6 +1,10 @@
+; Core scheme library
+
 (define apply
  (lambda (f x)
    (f x)))
+
+; Boolean operators
 
 (define and 
   (lambda (x y)
@@ -17,6 +21,8 @@
 (define not
   (lambda (x)
     (if x 0 x)))
+
+; Numeric operators
 
 (define <=
   (lambda (x y)
@@ -38,6 +44,8 @@
 	1
 	(* (! (- n 1))
 	   n))))
+
+; Begin operators
 
 (define begin
   (lambda (x y)
