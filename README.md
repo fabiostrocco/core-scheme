@@ -1,5 +1,4 @@
 Core Scheme is a subset of scheme, with the purpose of illustrating how to build compilers and interpreters.
-
 This project contains a compiler from CScheme to x86 assembly written in C++ with LLVM and a Cscheme interpreter.
 
 HOW TO COMPILE THE COMPILER
