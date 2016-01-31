@@ -1,13 +1,12 @@
-Core Scheme is a subset of scheme, with the purpose of illustrating how to build compilers and interpreters.
+Core Scheme is a subset of scheme, with the purpose of illustrating how to build compilers and interpreters.  
 This project contains a compiler from CScheme to x86 assembly written in C++ with LLVM and a Cscheme interpreter.
 
 HOW TO COMPILE THE COMPILER
 ----------------------------
 
-Please use **clang 3.4-1** and Linux Ubnutu or an x86 compatible machine.
-Type make to start the compilation.
-
-Please note that if using later or earlier verions of **LLVM** and **CLANG** this project may not compile.
+Please use **clang 3.4-1** and Linux Ubnutu or an x86 compatible machine.  
+Type make to start the compilation.  
+Please note that if using later or earlier verions of **LLVM** and **CLANG** this project may not compile.  
 
 HOW TO USE THE COMPILER
 ----------------------------
@@ -19,7 +18,7 @@ The infrastructure toolchain contains the following programs:
 - cschemea: the CScheme analyzer. It prints the input scheme program with
             lexical scoping resolution informations
 
-The former 3 applications are based on csc-comp, that is the compiler/interpreter implementaion in C++.
+The former 3 applications are based on csc-comp, that is the compiler/interpreter implementaion in C++.  
 You can try these tools on "test.scm": a simple scheme file reading a number and printing its factorial.
 
 To test the compiler write
@@ -51,7 +50,7 @@ It will pretty print "test.scm" and all the referenced programs, with lexical an
 CORE SCHEME GRAMMAR
 ----------------------------
 
-CScheme is a minimal (turing-complete) version of scheme.
+CScheme is a minimal (turing-complete) version of scheme.  
 The CScheme grammar is the following:
 
 ```bnf
