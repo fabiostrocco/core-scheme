@@ -1,4 +1,4 @@
-/*
+/**
  * CONSTRAINTS:
  *   1. Only global variables can be assigned
  *   2. Arithmetic operations are not variadic. For example (+ 1 2 3) is not allowed,
@@ -11,7 +11,8 @@
  *   - parameters have type i32
  *   - global variables have type i32*
  *   - set! returns 0
- * */
+ * 
+ */
 
 #include "parser.h"
 #include "code_generation.h"
@@ -20,12 +21,18 @@
 
 namespace cscheme {
 
+  static llvm::Type* create_data_type() {
+    return Type::getInt64Ty(getGlobalContext());
+  }
+
   /*TheModule contains all the main functions to generate LLVM IR code*/
   static Module *module;
   /*Builder contains some utility*/
   static IRBuilder<> builder(getGlobalContext());
   /*Mapping (from LLVM) scheme_variable_name |-> LLVM variable element*/
   static std::map<std::string, Value*> named_values;
+  /*Data type*/
+  static llvm::Type* data_type = create_data_type();
 
   //Main function's basick block for global variables initialization
   //static BasicBlock *defBlock = NULL;
@@ -288,12 +295,14 @@ namespace cscheme {
   }
 
   void CodeGenerator::Compile() {
+    create_data_type();
     Function* main = emit_main();
     BasicBlock* entry_block = BasicBlock::Create(getGlobalContext(), "main_entry", main);
 
     /*Emit instructions*/
     builder.SetInsertPoint(entry_block);
     emit_mappings();
+    emit_rti_prototypes();
     emit_initialization_call();
     Value* result = static_cast<Value*>(unit->Accept(new CodeGeneratorVisitor(), NULL));
       
@@ -303,18 +312,6 @@ namespace cscheme {
   
   void CodeGenerator::Print() {
     module->dump();
-  }
-
-  Function* CodeGenerator::emit_printf_prototype(LLVMContext& ctx, Module *mod) {
-    vector<llvm::Type*> printf_arg_types;
-    printf_arg_types.push_back(Type::getInt8PtrTy(ctx));
-
-    FunctionType* printf_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-						  printf_arg_types, true);
-
-    Function* func = Function::Create(printf_type, Function::ExternalLinkage, Twine("printf"), module);
-    func->setCallingConv(llvm::CallingConv::C);
-    return func;
   }
 
   Function* CodeGenerator::emit_main() {
@@ -343,6 +340,37 @@ namespace cscheme {
     							   b, NULL);
       named_values[b] = global_variable;
     }
+  }
+
+  void CodeGenerator::emit_rti_prototypes() {
+    /* Emit rti(data_type value, int type) function */
+    vector<llvm::Type*> rti_arg_types;
+    rti_arg_types.push_back(data_type);
+    rti_arg_types.push_back(Type::getInt32Ty(getGlobalContext()));
+
+    FunctionType* rti_type = FunctionType::get(Type::getVoidTy(getGlobalContext()),
+					       rti_arg_types, true);
+    Function* func = Function::Create(rti_type, Function::ExternalLinkage, Twine("rti"), module);
+    func->setCallingConv(llvm::CallingConv::C);
+
+    /* Emit convert(data_type value) function */
+    vector<llvm::Type*> convert_arg_types;
+    convert_arg_types.push_back(data_type);
+
+    FunctionType* convert_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+					       convert_arg_types, true);
+    Function* func2 = Function::Create(convert_type, Function::ExternalLinkage, Twine("convert"), module);
+    func2->setCallingConv(llvm::CallingConv::C);
+
+    /* Emit create(int value, int type) function */
+    vector<llvm::Type*> create_arg_types;
+    create_arg_types.push_back(Type::getInt32Ty(getGlobalContext()));
+    create_arg_types.push_back(Type::getInt32Ty(getGlobalContext()));
+
+    FunctionType* create_type = FunctionType::get(data_type,
+					       create_arg_types, true);
+    Function* func3 = Function::Create(create_type, Function::ExternalLinkage, Twine("create"), module);
+    func3->setCallingConv(llvm::CallingConv::C);
   }
 
   void CodeGenerator::emit_initialization_call() {

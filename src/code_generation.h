@@ -47,11 +47,10 @@ namespace cscheme {
 
   private:
     AstCompilationUnit* unit;
-    llvm::Function* emit_printf_prototype(llvm::LLVMContext& ctx, llvm::Module *mod);
     llvm::Function* emit_main();
+    void emit_rti_prototypes();
     void emit_mappings();
     void emit_initialization_call();
-
   };
 
 };

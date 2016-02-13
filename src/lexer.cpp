@@ -49,19 +49,18 @@ namespace cscheme {
 
     do { 
       curr_char = Eat();
-    } while(Empty(curr_char));
-
-    /* Ignore inline comments */
-
-    while(curr_char == ';') {
-      while(curr_char != '\n') {
-	if(curr_char == EOF) {
-	  return UpdateList(new EOFToken(prefix_, pos_, pos_, line_));
+      /* Ignore inline comments */
+      while(curr_char == ';') {
+	while(curr_char != '\n') {
+	  if(curr_char == EOF) {
+	    return UpdateList(new EOFToken(prefix_, pos_, pos_, line_));
+	  }
+	  curr_char = Eat();
 	}
 	curr_char = Eat();
       }
-      curr_char = Eat();
-    }
+
+    } while(Empty(curr_char));
 
     if(curr_char == EOF) {
       return UpdateList(new EOFToken(prefix_, pos_, pos_, line_));

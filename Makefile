@@ -15,3 +15,7 @@ clean:
 	rm -f csc-comp
 	rm -rf *.pp *.o *.ll *.pp *.s *.generated *.out
 	rm -f *.pp *.o *.ll *.pp *.s *~ src/*~ runtime/*~ lib/*~ *.generated *.out
+	rm -rf CMake*
+	rm -f CMake*
+	rm -f cmake*
+

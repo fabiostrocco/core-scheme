@@ -30,3 +30,8 @@ csc-comp
 
 # Testcases
 testcases/result/*
+
+# IntelliJ
+
+.idea
+CMake*
