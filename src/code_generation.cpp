@@ -21,6 +21,9 @@
 
 namespace cscheme {
 
+#define RTI_INTEGER_TYPE -2
+#define RTI_UNIT_TYPE -1
+
   static llvm::Type* create_data_type() {
     return Type::getInt64Ty(getGlobalContext());
   }
@@ -31,8 +34,12 @@ namespace cscheme {
   static IRBuilder<> builder(getGlobalContext());
   /*Mapping (from LLVM) scheme_variable_name |-> LLVM variable element*/
   static std::map<std::string, Value*> named_values;
-  /*Data type*/
+
+  /* Data type and RTI prototypes */
   static llvm::Type* data_type = create_data_type();
+  static llvm::Function* rti_fun = NULL;
+  static llvm::Function* convert_fun = NULL;
+  static llvm::Function* create_fun = NULL;
 
   //Main function's basick block for global variables initialization
   //static BasicBlock *defBlock = NULL;
@@ -56,10 +63,10 @@ namespace cscheme {
      *
      */
     virtual void* VisitDefinition(AstDefinition* definition, void* arg) {
-      Constant *zero = Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext()));
+      Constant* zero = Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext()));
       GlobalVariable* global_variable = new GlobalVariable(*module,
 							   Type::getInt32Ty(getGlobalContext()),
-							   /*isConstant=*/false,
+							   false,
 							   GlobalValue::CommonLinkage,
 							   zero,
 							   definition->GetVariable()->GetAccess()->ToString());
@@ -76,7 +83,7 @@ namespace cscheme {
     }
 
     /**
-     * A number is simply converted into a LLVM float number
+     * A number is simply converted into a LLVM int number
      */
     virtual void* VisitNumberExpression(AstNumberExpression* number_expression, void* arg) {
       return ConstantInt::get(getGlobalContext(),
@@ -157,12 +164,12 @@ namespace cscheme {
       /*----------------------- STEP 1: Evaluate function call site and arguments (call-by-balue, left-to-right) -------------------------------*/
 
       //Evaluate call site
-      AstExpression *function_expression = lambda_application->GetFunction();
-      Value *llvm_function = static_cast<Value*>(function_expression->Accept(this, NULL));
+      AstExpression* function_expression = lambda_application->GetFunction();
+      Value* llvm_function = static_cast<Value*>(function_expression->Accept(this, NULL));
       vector<Value*> llvm_arguments;
 
       //Evaluate function arguments
-      for(AstExpression *exp : * (lambda_application->GetArguments())) {
+      for(AstExpression* exp : *(lambda_application->GetArguments())) {
 	llvm_arguments.push_back(static_cast<Value*>(exp->Accept(this, NULL)));
       }
 
@@ -175,10 +182,10 @@ namespace cscheme {
       //If f_type = (i32, ..., i32 n times) -> i32 pType = (i32, ..., i32 n times) -> i32 *
       PointerType* p_type = PointerType::get(f_type, 0);
       //Create cast llvmFunction from i32 to PT
-      Value *call_site = builder.CreateIntToPtr(llvm_function, p_type, "callee");
+      Value* call_site = builder.CreateIntToPtr(llvm_function, p_type, "callee");
 
       /*----------------------- STEP 3: Generate function call-------------------------------*/
-      Value *res = builder.CreateCall(call_site, llvm_arguments, "callResult");
+      Value* res = builder.CreateCall(call_site, llvm_arguments, "callResult");
       return res;
     }
 
@@ -350,8 +357,8 @@ namespace cscheme {
 
     FunctionType* rti_type = FunctionType::get(Type::getVoidTy(getGlobalContext()),
 					       rti_arg_types, true);
-    Function* func = Function::Create(rti_type, Function::ExternalLinkage, Twine("rti"), module);
-    func->setCallingConv(llvm::CallingConv::C);
+    rti_fun = Function::Create(rti_type, Function::ExternalLinkage, Twine("rti"), module);
+    rti_fun->setCallingConv(llvm::CallingConv::C);
 
     /* Emit convert(data_type value) function */
     vector<llvm::Type*> convert_arg_types;
@@ -359,8 +366,8 @@ namespace cscheme {
 
     FunctionType* convert_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
 					       convert_arg_types, true);
-    Function* func2 = Function::Create(convert_type, Function::ExternalLinkage, Twine("convert"), module);
-    func2->setCallingConv(llvm::CallingConv::C);
+    convert_fun = Function::Create(convert_type, Function::ExternalLinkage, Twine("convert"), module);
+    convert_fun->setCallingConv(llvm::CallingConv::C);
 
     /* Emit create(int value, int type) function */
     vector<llvm::Type*> create_arg_types;
@@ -369,8 +376,8 @@ namespace cscheme {
 
     FunctionType* create_type = FunctionType::get(data_type,
 					       create_arg_types, true);
-    Function* func3 = Function::Create(create_type, Function::ExternalLinkage, Twine("create"), module);
-    func3->setCallingConv(llvm::CallingConv::C);
+    create_fun = Function::Create(create_type, Function::ExternalLinkage, Twine("create"), module);
+    create_fun->setCallingConv(llvm::CallingConv::C);
   }
 
   void CodeGenerator::emit_initialization_call() {
@@ -384,5 +391,24 @@ namespace cscheme {
     builder.CreateCall(func, args, "emptyResult");
   }
 
+  void CodeGenerator::emit_rti_call(llvm::Value* value, int expected_type) {
+      vector<Value*> llvm_arguments;
+      llvm_arguments.push_back(value);
+      llvm_arguments.push_back(llvm::ConstantInt::get(getGlobalContext(), APInt(32, expected_type, true)));
+      builder.CreateCall(rti_fun, llvm_arguments, "void_result");
+  }
+
+  Value* CodeGenerator::emit_create_call(llvm::Value* value, int type) {
+      vector<Value*> llvm_arguments;
+      llvm_arguments.push_back(value);
+      llvm_arguments.push_back(llvm::ConstantInt::get(getGlobalContext(), APInt(32, type, true)));
+      return builder.CreateCall(create_fun, llvm_arguments, "packed_data");
+  }
+
+  Value* CodeGenerator::emit_convert_call(llvm::Value* value) {
+      vector<Value*> llvm_arguments;
+      llvm_arguments.push_back(value);
+      return builder.CreateCall(convert_fun, llvm_arguments, "int_data");
+  }
 };
 

@@ -51,6 +51,11 @@ namespace cscheme {
     void emit_rti_prototypes();
     void emit_mappings();
     void emit_initialization_call();
+
+    /* RTI CALLS GENERATION */
+    void emit_rti_call(llvm::Value* value, int expected_type);
+    Value* emit_create_call(llvm::Value* value, int type);
+    Value* emit_convert_call(llvm::Value* value);
   };
 
 };
