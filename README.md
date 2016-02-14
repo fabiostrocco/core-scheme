@@ -47,7 +47,7 @@ You can test the analyzer using the following instruction
 ```
 It will pretty print "test.scm" and all the referenced programs, with lexical analysis informations.
 
-CORE SCHEME GRAMMAR
+CORE SCHEME LANGUAGE
 ----------------------------
 
 CScheme is a minimal (turing-complete) version of scheme.  
@@ -66,3 +66,5 @@ default names: +,-,*,/,=,<,>,read,write
 Where 'PATH' represents a string, 'N' represets a natural number, and 'x' an identifier name 
 (without numbers, only letters and some special characters are allowed).
 Moreover, whitespaces and inline comments are allowed.
+CScheme syntax and semantics are the same as scheme except if condition. Indeed, 0 means false in conditional
+expression, and any other integer value means true, but non numeric values are not allwed.

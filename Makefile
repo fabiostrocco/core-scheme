@@ -18,4 +18,3 @@ clean:
 	rm -rf CMake*
 	rm -f CMake*
 	rm -f cmake*
-

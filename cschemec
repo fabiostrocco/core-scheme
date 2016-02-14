@@ -16,6 +16,6 @@ OUT=$1.generated
 rm -rf $OUT
 mkdir $OUT
 ./csc-comp --mode=llvm $1 2> $OUT/intermediate.ll
-llvm-link $OUT/intermediate.ll $RUNTIME/runtime.ll -o $OUT/object.o
+llvm-link $OUT/intermediate.ll $RUNTIME/rti.ll $RUNTIME/runtime.ll -o $OUT/object.o
 llc -filetype=asm $OUT/object.o
 gcc -O3 $OUT/object.o.s $RUNTIME/gcc-runtime.c -o $1.out

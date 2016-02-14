@@ -1,159 +1,182 @@
-@default_plus = global i32 0
-@default_minus = global i32 0
-@default_times = global i32 0
-@default_divide = global i32 0
-@default_equals = global i32 0
-@default_less = global i32 0
-@default_greater = global i32 0
-@default_input = global i32 0
-@default_output = global i32 0
+@default_plus = global i64 0
+@default_minus = global i64 0
+@default_times = global i64 0
+@default_divide = global i64 0
+@default_equals = global i64 0
+@default_less = global i64 0
+@default_greater = global i64 0
+@default_input = global i64 0
+@default_output = global i64 0
 
-;These functions have to be provided into a native file
-;for example a runtime C file and liked to the
-;binary generated after the linkage with llvm
-declare i32 @gcc_print(i32)
+; These functions have to be provided into a native file
+; for example a runtime C file and liked to the
+; binary generated after the linkage with llvm
+
+declare void @gcc_print(i32, i32)
 declare i32 @gcc_input()
-declare void @gcc_rti_error(i32, i32)
 
-%struct.data_type = type { i32, i32 }
+; RTI Functions
 
-define void @rti(i64 %packed_data.coerce, i32 %type) {
-  %packed_data = alloca %struct.data_type, align 8
-  %1 = alloca i32, align 4
-  %2 = bitcast %struct.data_type* %packed_data to i64*
-  store i64 %packed_data.coerce, i64* %2, align 1
-  store i32 %type, i32* %1, align 4
-  %3 = getelementptr inbounds %struct.data_type* %packed_data, i32 0, i32 1
-  %4 = load i32* %3, align 4
-  %5 = load i32* %1, align 4
-  %6 = icmp ne i32 %4, %5
-  br i1 %6, label %7, label %11
+declare void @rti(i64, i32)
+declare i32 @convert(i64)
+declare i64 @create(i32, i32)
+declare i32 @typeof(i64)
 
-; <label>:7                                       ; preds = %0
-  %8 = getelementptr inbounds %struct.data_type* %packed_data, i32 0, i32 1
-  %9 = load i32* %8, align 4
-  %10 = load i32* %1, align 4
-  call void @gcc_rti_error(i32 %9, i32 %10)
-  br label %11
-
-; <label>:11                                      ; preds = %7, %0
-  ret void
-}
-
-define i32 @convert(i64 %packed_data.coerce) {
-  %packed_data = alloca %struct.data_type, align 8
-  %1 = bitcast %struct.data_type* %packed_data to i64*
-  store i64 %packed_data.coerce, i64* %1, align 1
-  %2 = getelementptr inbounds %struct.data_type* %packed_data, i32 0, i32 0
-  %3 = load i32* %2, align 4
-  ret i32 %3
-}
-
-define i64 @create(i32 %value, i32 %type) {
-  %1 = alloca %struct.data_type, align 4
-  %2 = alloca i32, align 4
-  %3 = alloca i32, align 4
-  store i32 %value, i32* %2, align 4
-  store i32 %type, i32* %3, align 4
-  %4 = load i32* %2, align 4
-  %5 = getelementptr inbounds %struct.data_type* %1, i32 0, i32 0
-  store i32 %4, i32* %5, align 4
-  %6 = load i32* %3, align 4
-  %7 = getelementptr inbounds %struct.data_type* %1, i32 0, i32 1
-  store i32 %6, i32* %7, align 4
-  %8 = bitcast %struct.data_type* %1 to i64*
-  %9 = load i64* %8, align 1
-  ret i64 %9
-}
+; Init runtime environment
 
 define i32 @init() {
 entry:
-  %plus = ptrtoint i32 (i32, i32)* @internal_add to i32
-  store i32 %plus, i32 *@default_plus
+  %plus = ptrtoint i64 (i64, i64)* @internal_add to i32
+  %packed_plus = call i64 @create(i32 %plus, i32 2)
+  store i64 %packed_plus, i64 *@default_plus
 
-  %minus = ptrtoint i32 (i32, i32)* @internal_sub to i32
-  store i32 %minus, i32 *@default_minus
+  %minus = ptrtoint i64 (i64, i64)* @internal_sub to i32
+  %packed_minus = call i64 @create(i32 %minus, i32 2)
+  store i64 %packed_minus, i64 *@default_minus
 
-  %mult = ptrtoint i32 (i32, i32)* @internal_times to i32
-  store i32 %mult, i32 *@default_times
+  %times = ptrtoint i64 (i64, i64)* @internal_times to i32
+  %packed_times = call i64 @create(i32 %times, i32 2)
+  store i64 %packed_times, i64 *@default_times
 
-  %divs = ptrtoint i32 (i32, i32)* @internal_divide to i32
-  store i32 %divs, i32 *@default_divide
+  %divide = ptrtoint i64 (i64, i64)* @internal_divide to i32
+  %packed_divide = call i64 @create(i32 %divide, i32 2)
+  store i64 %packed_divide, i64 *@default_divide
 
-  %eq = ptrtoint i32 (i32, i32)* @internal_equals to i32
-  store i32 %eq, i32 *@default_equals
+  %eq = ptrtoint i64 (i64, i64)* @internal_equals to i32
+  %packed_eq = call i64 @create(i32 %eq, i32 2)
+  store i64 %packed_eq, i64 *@default_equals
 
-  %lt = ptrtoint i32 (i32, i32)* @internal_lt to i32
-  store i32 %lt, i32 *@default_less
+  %lt = ptrtoint i64 (i64, i64)* @internal_lt to i32
+  %packed_lt = call i64 @create(i32 %lt, i32 2)
+  store i64 %packed_lt, i64 *@default_less
 
-  %gt = ptrtoint i32 (i32, i32)* @internal_gt to i32
-  store i32 %gt, i32 *@default_greater
+  %gt = ptrtoint i64 (i64, i64)* @internal_gt to i32
+  %packed_gt = call i64 @create(i32 %gt, i32 2)
+  store i64 %packed_gt, i64 *@default_greater
 
-  %print = ptrtoint i32 (i32)* @gcc_print to i32
-  store i32 %print, i32 *@default_output
+  %print = ptrtoint i64 (i64)* @internal_output to i32
+  %packed_print = call i64 @create(i32 %print, i32 1)
+  store i64 %packed_print, i64 *@default_output
 
-  %input = ptrtoint i32 ()* @gcc_input to i32
-  store i32 %input, i32 *@default_input
+  %input = ptrtoint i64 ()* @internal_input to i32
+  %packed_input = call i64 @create(i32 %input, i32 0)
+  store i64 %packed_input, i64 *@default_input
 
   ret i32 0
 }
 
-define i32 @internal_add(i32 %a, i32 %b) {
+; cscheme built-in functions
+
+define i64 @internal_add(i64 %a, i64 %b) {
 entry:
-  %x = add i32 %a, %b
-  ret i32 %x
+  call void @rti(i64 %a, i32 -2)
+  call void @rti(i64 %b, i32 -2)
+  %a_raw = call i32 @convert(i64 %a)
+  %b_raw = call i32 @convert(i64 %b)
+  %x = add i32 %a_raw, %b_raw
+  %res = call i64 @create(i32 %x, i32 -2)
+  ret i64 %res
 }
 
-define i32 @internal_sub(i32 %a, i32 %b) {
+define i64 @internal_sub(i64 %a, i64 %b) {
 entry:
-  %x = sub i32 %a, %b
-  ret i32 %x
+  call void @rti(i64 %a, i32 -2)
+  call void @rti(i64 %b, i32 -2)
+  %a_raw = call i32 @convert(i64 %a)
+  %b_raw = call i32 @convert(i64 %b)
+  %x = sub i32 %a_raw, %b_raw
+  %res = call i64 @create(i32 %x, i32 -2)
+  ret i64 %res
 }
 
-define i32 @internal_times(i32 %a, i32 %b) {
+define i64 @internal_times(i64 %a, i64 %b) {
 entry:
-  %x = mul i32 %a, %b
-  ret i32 %x
+   call void @rti(i64 %a, i32 -2)
+   call void @rti(i64 %b, i32 -2)
+   %a_raw = call i32 @convert(i64 %a)
+   %b_raw = call i32 @convert(i64 %b)
+   %x = mul i32 %a_raw, %b_raw
+   %res = call i64 @create(i32 %x, i32 -2)
+   ret i64 %res
 }
 
-define i32 @internal_divide(i32 %a, i32 %b) {
+define i64 @internal_divide(i64 %a, i64 %b) {
 entry:
-  %x = udiv i32 %a, %b
-  ret i32 %x
+  call void @rti(i64 %a, i32 -2)
+  call void @rti(i64 %b, i32 -2)
+  %a_raw = call i32 @convert(i64 %a)
+  %b_raw = call i32 @convert(i64 %b)
+  %x = udiv i32 %a_raw, %b_raw
+  %res = call i64 @create(i32 %x, i32 -2)
+  ret i64 %res
 }
 
-define i32 @internal_equals(i32 %a, i32 %b) {
+define i64 @internal_equals(i64 %a, i64 %b) {
 entry:
-  %res = icmp eq i32 %a, %b
+  call void @rti(i64 %a, i32 -2)
+  call void @rti(i64 %b, i32 -2)
+  %a_raw = call i32 @convert(i64 %a)
+  %b_raw = call i32 @convert(i64 %b)
+  %res = icmp eq i32 %a_raw, %b_raw
   br i1 %res, label %else, label %then
 
 then:
-  ret i32 0
+  %res_false = call i64 @create(i32 0, i32 -2)
+  ret i64 %res_false
 
 else:
-  ret i32 1
+  %res_true = call i64 @create(i32 1, i32 -2)
+  ret i64 %res_true
 }
 
-define i32 @internal_lt(i32 %a, i32 %b) {
+define i64 @internal_lt(i64 %a, i64 %b) {
 entry:
-  %res = icmp slt i32 %a, %b
+  call void @rti(i64 %a, i32 -2)
+  call void @rti(i64 %b, i32 -2)
+  %a_raw = call i32 @convert(i64 %a)
+  %b_raw = call i32 @convert(i64 %b)
+  %res = icmp slt i32 %a_raw, %b_raw
   br i1 %res, label %else, label %then
 
 then:
-  ret i32 0
+  %res_false = call i64 @create(i32 0, i32 -2)
+  ret i64 %res_false
 
 else:
-  ret i32 1
+  %res_true = call i64 @create(i32 1, i32 -2)
+  ret i64 %res_true
 }
 
-define i32 @internal_gt(i32 %a, i32 %b) {
+define i64 @internal_gt(i64 %a, i64 %b) {
 entry:
-  %res = icmp sgt i32 %a, %b
+  call void @rti(i64 %a, i32 -2)
+  call void @rti(i64 %b, i32 -2)
+  %a_raw = call i32 @convert(i64 %a)
+  %b_raw = call i32 @convert(i64 %b)
+  %res = icmp sgt i32 %a_raw, %b_raw
   br i1 %res, label %else, label %then
 
 then:
-  ret i32 0
+  %res_false = call i64 @create(i32 0, i32 -2)
+  ret i64 %res_false
 
 else:
-  ret i32 1
+  %res_true = call i64 @create(i32 1, i32 -2)
+  ret i64 %res_true
+}
+
+define i64 @internal_output(i64 %a) {
+entry:
+   %a_raw = call i32 @convert(i64 %a)
+   %a_type = call i32 @typeof(i64 %a)
+   call void @gcc_print(i32 %a_raw, i32 %a_type)
+   %unit_res = call i64 @create(i32 0, i32 -1)
+   ret i64 %unit_res
+}
+
+define i64 @internal_input() {
+entry:
+   %res = call i32 @gcc_input()
+   %res_packed = call i64 @create(i32 %res, i32 -2)
+   ret i64 %res_packed
 }

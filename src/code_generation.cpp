@@ -63,14 +63,13 @@ namespace cscheme {
      *
      */
     virtual void* VisitDefinition(AstDefinition* definition, void* arg) {
-      Constant* zero = Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext()));
+      Constant* zero = Constant::getNullValue(data_type);
       GlobalVariable* global_variable = new GlobalVariable(*module,
-							   Type::getInt32Ty(getGlobalContext()),
+							   data_type,
 							   false,
 							   GlobalValue::CommonLinkage,
 							   zero,
 							   definition->GetVariable()->GetAccess()->ToString());
-
 
       named_values[definition->GetVariable()->GetAccess()->GetIdentifier()] = global_variable;
       global_variable->setName(definition->GetVariable()->GetAccess()->GetIdentifier());
@@ -86,8 +85,10 @@ namespace cscheme {
      * A number is simply converted into a LLVM int number
      */
     virtual void* VisitNumberExpression(AstNumberExpression* number_expression, void* arg) {
-      return ConstantInt::get(getGlobalContext(),
-			      APInt(32, atoi(number_expression->GetNumber()->GetText().c_str())));
+      Value* val = ConstantInt::get(getGlobalContext(),
+				    APInt(32, atoi(number_expression->GetNumber()->GetText().c_str())));
+      Value* packed_value = emit_create_call(val, RTI_INTEGER_TYPE);
+      return packed_value;
     }
 
     /**
@@ -97,7 +98,7 @@ namespace cscheme {
     virtual void* VisitVariableExpression(AstVariableExpression* variable_expression, void* arg) {
       Access *access = variable_expression->GetAccess();
       string llvm_var_name = access->GetIdentifier();
-      Value *llvm_var = named_values[llvm_var_name];
+      Value* llvm_var = named_values[llvm_var_name];
 
       if (llvm_var != NULL) {
 	//Global access is mutable (set! can be applied to global variables in our language)
@@ -105,7 +106,7 @@ namespace cscheme {
 	if(access->IsGlobal()) {
 	  llvm_var = builder.CreateLoad(llvm_var, llvm_var_name.c_str());
 	}
-	return llvm_var;
+ 	return llvm_var;
       } else {
 	PrintError(variable_expression, 
 		   "Unknown variable name "
@@ -120,8 +121,8 @@ namespace cscheme {
 
       // Make the function type: (int x ... x int) -> int where the number of input type is the same
       // as the arity
-      vector<Type*> Doubles(lambda_expression->GetParameters()->size(), Type::getInt32Ty(getGlobalContext()));
-      FunctionType* f_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+      vector<Type*> Doubles(lambda_expression->GetParameters()->size(), data_type);
+      FunctionType* f_type = FunctionType::get(data_type,
 					       Doubles, false);
       //Create the function
       Function* fun = Function::Create(f_type, Function::ExternalLinkage, "inline_function", module);
@@ -156,8 +157,9 @@ namespace cscheme {
       verifyFunction(*fun);
       //Restore the insert point to the previous basic block
       builder.SetInsertPoint(current_block);
-      PtrToIntInst *res = new PtrToIntInst::PtrToIntInst(fun, Type::getInt32Ty(getGlobalContext()), "functionPointer", current_block);
-      return res;
+      PtrToIntInst* res = new PtrToIntInst::PtrToIntInst(fun, Type::getInt32Ty(getGlobalContext()), "functionPointer", current_block);
+      Value* packed_value = emit_create_call(res, Doubles.size());
+      return packed_value;
     }
 
     virtual void* VisitLambdaApplication(AstLambdaApplication* lambda_application, void* arg) {
@@ -174,17 +176,23 @@ namespace cscheme {
       }
 
       /*----------------------- STEP 2: Build the function type -------------------------------*/
-      vector<Type*> Doubles(lambda_application->GetArguments()->size(), Type::getInt32Ty(getGlobalContext()));
-      FunctionType* f_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
+      vector<Type*> Doubles(lambda_application->GetArguments()->size(), data_type);
+      FunctionType* f_type = FunctionType::get(data_type,
 					       Doubles, false);
       //For a function call (e e_1 ... e_n) the function type f_type = (i32, ..., i32 n times) -> i32
       builder.GetInsertBlock();
       //If f_type = (i32, ..., i32 n times) -> i32 pType = (i32, ..., i32 n times) -> i32 *
       PointerType* p_type = PointerType::get(f_type, 0);
+      // Check that the llvm_function is actually a function value, and with the right arity with rti calls.
+      // If so, it converts the llvm_function packed data into an integer
+      /*----------------------- STEP 3: RTI----------------------------------------------------*/
+      int arity = Doubles.size();
+      emit_rti_call(llvm_function, arity);
+      Value* llvm_unpacked_function = emit_convert_call(llvm_function);
       //Create cast llvmFunction from i32 to PT
-      Value* call_site = builder.CreateIntToPtr(llvm_function, p_type, "callee");
+      Value* call_site = builder.CreateIntToPtr(llvm_unpacked_function, p_type, "callee");
 
-      /*----------------------- STEP 3: Generate function call-------------------------------*/
+      /*----------------------- STEP 4: Generate function call-------------------------------*/
       Value* res = builder.CreateCall(call_site, llvm_arguments, "callResult");
       return res;
     }
@@ -208,23 +216,25 @@ namespace cscheme {
     virtual void* VisitIfExpression(AstIfExpression* if_expression, void* arg) {
       //Evaluate the condition
       Value* cond = static_cast<Value*>(if_expression->GetCondition()->Accept(this, arg));
+      emit_rti_call(cond, RTI_INTEGER_TYPE);
+      Value* cond_unpacked = emit_convert_call(cond);
 
       /*----------------------- STEP 1: Create condition branch and generate true-false branch instructions-------------*/
       //Convert condition to a bool by comparing equal to 0
       //compareRes contains the comparison result
-      Value *compare_res = static_cast<Value*>(builder.CreateICmpEQ(cond,
+      Value* compare_res = static_cast<Value*>(builder.CreateICmpEQ(cond_unpacked,
 								    ConstantInt::get(getGlobalContext(), APInt(32, 0)), "ifcond"));
 
       //Get the current enclosing function, where to add the if-then-else basic blocks
-      Function *enclosing_function = builder.GetInsertBlock()->getParent();
+      Function* enclosing_function = builder.GetInsertBlock()->getParent();
 
       // Create blocks for the then and else cases.  Insert the 'then' block at the
       // end of the function.
-      BasicBlock *then_branch = BasicBlock::Create(getGlobalContext(), 
+      BasicBlock* then_branch = BasicBlock::Create(getGlobalContext(),
 						   "then",
 						   enclosing_function);
-      BasicBlock *else_branch = BasicBlock::Create(getGlobalContext(), "else");
-      BasicBlock *merge_branch = BasicBlock::Create(getGlobalContext(), "ifcont");
+      BasicBlock* else_branch = BasicBlock::Create(getGlobalContext(), "else");
+      BasicBlock* merge_branch = BasicBlock::Create(getGlobalContext(), "ifcont");
 
       //Create the if-then-else instruction set. Only thenBranch is currently added, but
       //the entire instruction set is scheduled fore emission (the builder does the actual instruction
@@ -239,7 +249,7 @@ namespace cscheme {
       builder.SetInsertPoint(then_branch);
 
       //Populates the then branch
-      Value *then_value = static_cast<Value*>(if_expression->GetTrueBranch()->Accept(this, arg));
+      Value* then_value = static_cast<Value*>(if_expression->GetTrueBranch()->Accept(this, arg));
       //builder.SetInsertPoint(thenBranch);
       //Creates jump to merge branch (then end)
       builder.CreateBr(merge_branch);
@@ -250,7 +260,7 @@ namespace cscheme {
       /*Emit else basic block*/
       enclosing_function->getBasicBlockList().push_back(else_branch);
       builder.SetInsertPoint(else_branch);
-      Value *else_value = static_cast<Value*>(if_expression->GetFalseBranch()->Accept(this, arg));
+      Value* else_value = static_cast<Value*>(if_expression->GetFalseBranch()->Accept(this, arg));
       //builder.SetInsertPoint(else_branch);
       builder.CreateBr(merge_branch);
       // Codegen of 'Else' can change the current block, update elseBranch for the PHI.
@@ -260,7 +270,7 @@ namespace cscheme {
       // Emit merge block.
       enclosing_function->getBasicBlockList().push_back(merge_branch);
       builder.SetInsertPoint(merge_branch);
-      PHINode* phi = builder.CreatePHI(Type::getInt32Ty(getGlobalContext()), 2, "iftmp");
+      PHINode* phi = builder.CreatePHI(data_type, 2, "iftmp");
 
       phi->addIncoming(then_value, then_branch);
       phi->addIncoming(else_value, else_branch);
@@ -270,16 +280,25 @@ namespace cscheme {
     }
 
     virtual void* VisitSetExpression(AstSetExpression* set_expression, void* arg) {
-      Access *access = set_expression->GetVariable()->GetAccess();
+      Access* access = set_expression->GetVariable()->GetAccess();
       if(!access->IsGlobal()) {
-	PrintError(set_expression, "Cannot use set! with a local variable during compilation");
+	PrintError(set_expression, "set! is only allowed for global variables");
       }
 
       string id = access->GetIdentifier();
-      Value *var = named_values[id];
-      Value *value = static_cast<Value*>(set_expression->GetValue()->Accept(this, NULL));
+      Value* var = named_values[id];
+      Value* value = static_cast<Value*>(set_expression->GetValue()->Accept(this, NULL));
       builder.CreateStore(value, var);
-      return Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext()));;
+      Value* result = emit_create_call(Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext())), RTI_UNIT_TYPE);
+      return result;
+    }
+
+    /**
+     * Emit instructions to get a raw value from a value enriched with type information for RTI.
+     * Returns the raw value llvm representation.
+     */
+    Value* Unpack(Value* value) {
+      return emit_convert_call(value);
     }
 
   private:
@@ -292,6 +311,27 @@ namespace cscheme {
       return TmpB.CreateAlloca(Type::getDoubleTy(getGlobalContext()), 0,
 			       var_name.c_str());
     }
+
+
+    void emit_rti_call(llvm::Value* value, int expected_type) {
+      vector<Value*> llvm_arguments;
+      llvm_arguments.push_back(value);
+      llvm_arguments.push_back(llvm::ConstantInt::get(getGlobalContext(), APInt(32, expected_type, true)));
+      builder.CreateCall(rti_fun, llvm_arguments);
+    }
+
+    Value* emit_create_call(llvm::Value* value, int type) {
+      vector<Value*> llvm_arguments;
+      llvm_arguments.push_back(value);
+      llvm_arguments.push_back(llvm::ConstantInt::get(getGlobalContext(), APInt(32, type, true)));
+      return builder.CreateCall(create_fun, llvm_arguments, "packed_data");
+    }
+
+    Value* emit_convert_call(llvm::Value* value) {
+      vector<Value*> llvm_arguments;
+      llvm_arguments.push_back(value);
+      return builder.CreateCall(convert_fun, llvm_arguments, "int_data");
+    }
   };
 
 
@@ -303,6 +343,7 @@ namespace cscheme {
 
   void CodeGenerator::Compile() {
     create_data_type();
+    CodeGeneratorVisitor* visitor = new CodeGeneratorVisitor();
     Function* main = emit_main();
     BasicBlock* entry_block = BasicBlock::Create(getGlobalContext(), "main_entry", main);
 
@@ -311,7 +352,8 @@ namespace cscheme {
     emit_mappings();
     emit_rti_prototypes();
     emit_initialization_call();
-    Value* result = static_cast<Value*>(unit->Accept(new CodeGeneratorVisitor(), NULL));
+    Value* packed_result = static_cast<Value*>(unit->Accept(visitor, NULL));
+    Value* result = visitor->Unpack(packed_result);
       
     //Returns the expression result
     builder.CreateRet(result);
@@ -340,7 +382,7 @@ namespace cscheme {
     Constant* zero = Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext()));
     for(string b : bindings) {
       GlobalVariable* global_variable = new GlobalVariable(*module, 
-    							   Type::getInt32Ty(getGlobalContext()),
+    							   data_type,
     							   false,
     							   GlobalValue::ExternalLinkage,
     							   NULL,
@@ -365,7 +407,7 @@ namespace cscheme {
     convert_arg_types.push_back(data_type);
 
     FunctionType* convert_type = FunctionType::get(Type::getInt32Ty(getGlobalContext()),
-					       convert_arg_types, true);
+						   convert_arg_types, true);
     convert_fun = Function::Create(convert_type, Function::ExternalLinkage, Twine("convert"), module);
     convert_fun->setCallingConv(llvm::CallingConv::C);
 
@@ -375,7 +417,7 @@ namespace cscheme {
     create_arg_types.push_back(Type::getInt32Ty(getGlobalContext()));
 
     FunctionType* create_type = FunctionType::get(data_type,
-					       create_arg_types, true);
+						  create_arg_types, true);
     create_fun = Function::Create(create_type, Function::ExternalLinkage, Twine("create"), module);
     create_fun->setCallingConv(llvm::CallingConv::C);
   }
@@ -389,26 +431,6 @@ namespace cscheme {
     func->setCallingConv(llvm::CallingConv::C);
     vector<Value*> args;
     builder.CreateCall(func, args, "emptyResult");
-  }
-
-  void CodeGenerator::emit_rti_call(llvm::Value* value, int expected_type) {
-      vector<Value*> llvm_arguments;
-      llvm_arguments.push_back(value);
-      llvm_arguments.push_back(llvm::ConstantInt::get(getGlobalContext(), APInt(32, expected_type, true)));
-      builder.CreateCall(rti_fun, llvm_arguments, "void_result");
-  }
-
-  Value* CodeGenerator::emit_create_call(llvm::Value* value, int type) {
-      vector<Value*> llvm_arguments;
-      llvm_arguments.push_back(value);
-      llvm_arguments.push_back(llvm::ConstantInt::get(getGlobalContext(), APInt(32, type, true)));
-      return builder.CreateCall(create_fun, llvm_arguments, "packed_data");
-  }
-
-  Value* CodeGenerator::emit_convert_call(llvm::Value* value) {
-      vector<Value*> llvm_arguments;
-      llvm_arguments.push_back(value);
-      return builder.CreateCall(convert_fun, llvm_arguments, "int_data");
   }
 };
 

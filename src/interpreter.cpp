@@ -49,6 +49,12 @@ namespace cscheme {
     virtual bool IsLambda() = 0;
 
     /**
+     * Return true if the value represents a valid unit value, false
+     * otherwise.
+     */
+    virtual bool IsUnit() = 0;
+
+    /**
      * Return the boolean value associated with this variable.
      */
     virtual bool GetCondition() = 0;
@@ -86,6 +92,10 @@ namespace cscheme {
     virtual bool IsLambda() {
       AstExpression* node = static_cast<AstExpression*>(inner_node_);
       return node->IsLambda();
+    }
+
+    virtual bool IsUnit() {
+      return false;
     }
   
     virtual bool GetCondition() {
@@ -145,6 +155,8 @@ namespace cscheme {
 
     virtual bool IsLambda() { return false; }
 
+    virtual bool IsUnit() { return false; }
+
     virtual bool GetCondition() { return number_ != 0; }
 
     virtual int GetNumber() { return number_; }
@@ -183,7 +195,9 @@ namespace cscheme {
     virtual bool IsNumber() { return false; }
 
     virtual bool IsLambda() { return false; }
-  
+
+    virtual bool IsUnit() { return true; }
+
     virtual bool GetCondition() {
       Bug("getCondition() should not be called for unit values");
       return true;
@@ -205,6 +219,8 @@ namespace cscheme {
     virtual bool IsNumber() { return false; }
   
     virtual bool IsLambda() { return true; }
+
+    virtual bool IsUnit() { return false; }
 
     virtual bool GetCondition() {
       Bug("getCondition() should not be called for default function values values");
@@ -250,8 +266,10 @@ namespace cscheme {
 	    cout << arg0->GetNumber() << endl;
 	  } else if(arg0->IsLambda()) {
 	    cout << "#<procedure>" << endl;
+	  } else if(arg0->IsUnit()) {
+	    cout << "#<void>" << endl;
 	  } else {
-	    PrintError(NULL, "Output argument should be a number or a lambda");
+	    PrintError(NULL, "Output argument should be a number,a lambda, or void");
 	  }
 	} else {
 	  PrintError(NULL, "Output function should have exactly 1 argument");
@@ -344,6 +362,8 @@ namespace cscheme {
     virtual int GetNumber() { return 0; }
 
     virtual bool IsLambda() { return false; }
+
+    virtual bool IsUnit() { return false; }
 
     virtual AstValue* Eval(RuntimeEnvironmentInt* env, vector<AstValue*> arguments) {
       Bug("cannot call base pointer value");

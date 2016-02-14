@@ -52,7 +52,6 @@ int main(int argc, char** argv) {
   visited.insert(file_name);
   parser->Resolve(unit, visited);
 
-
   Analyzer* analyzer = new Analyzer(unit);
   analyzer->Analyze();
 

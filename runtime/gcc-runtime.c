@@ -3,8 +3,14 @@
 
 /* LLVM GCC Interface */
 
-int gcc_print(int x) {
-  return printf("%d\n", x);
+void gcc_print(int value, int type) {
+  if(type == -2) {
+    printf("%d\n", value);
+  } else if(type == -1) {
+    printf("#<void>\n");
+  } else {
+    printf("#<procedure>\n");
+  }
 }
 
 int gcc_input() {
@@ -21,8 +27,8 @@ char* to_type_string(int type);
 void gcc_rti_error(int value_type, int expected_type) {
   char* value_string = to_type_string(value_type);
   char* expected_string = to_type_string(expected_type);
-  fprintf(stderr, "Runtime erorr: expected %s, %s was found instead\n",
-          value_string, expected_string);
+  fprintf(stderr, "Runtime error: expected %s, %s was found instead\n",
+          expected_string, value_string);
   exit(4);
 }
 
