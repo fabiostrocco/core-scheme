@@ -4,6 +4,7 @@
 #include "error.h"
 
 using namespace std;
+using namespace cscheme;
 
 namespace ast {
 
@@ -80,11 +81,13 @@ namespace ast {
   /* CLASS AstCompilationUnit */
   void* AstCompilationUnit::Accept(SimpleAstVisitor* visitor, void* args) {
     void* res = NULL;
-
+    
+    ASSERT(imports_ != NULL);
     for(AstLoadDirective* load : *imports_) {
       res = load->Accept(visitor, args);
     }
 
+    ASSERT(definitions_ != NULL);
     for (AstDefinition* def : *definitions_) {
       res = def->Accept(visitor, args);
     }
@@ -99,6 +102,7 @@ namespace ast {
   /* CLASS AstLambdaAbstraction*/
   vector<Access*> AstLambdaAbstraction::GetParameterAccessList() {
     vector<Access*> result;
+    ASSERT(parameters_ != NULL);
     for(AstVariableExpression* parameter : *parameters_) {
       result.push_back(parameter->GetAccess());
     }

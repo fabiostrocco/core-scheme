@@ -4,14 +4,14 @@
 #include <stdio.h>
 #include <typeinfo>
 #include <string.h>
-
+#include <memory>
 #include "parser.h"
 #include "formatter.h"
 #include "analysis.h"
-#include "options.h"
 #include "interpreter.h"
 #include "code_generation.h"
 #include "error.h"
+#include "options.h"
 
 /**
  RESTRICTION IN THE COMPILER: to keep the compiler simple, the following restrictions have been applied
@@ -30,14 +30,14 @@ using namespace std;
 using namespace cscheme;
 
 int main(int argc, char** argv) {
-  CommandLineOptions options = CommandLineOptions(argc, argv);
+  CommandLineOptions options(argc, argv);
 
   if(options.IsPrintInfo()) {
     options.PrintInfo();
     return EXIT_OK;
   }
   
-  char *file_name = options.GetFileName();
+  char* file_name = options.GetFileName();
 
   if(!options.FileExists()) {
     cerr << "File not found " << file_name << endl;
@@ -45,12 +45,13 @@ int main(int argc, char** argv) {
   }
   FILE* source = options.GetFile();
 
-  Lexer lexer = Lexer(source, argv[2]);
-  Parser* parser = new Parser(lexer);
+  Lexer lexer = Lexer(source, file_name);
+  ParserPtr parser = Parser::Create(lexer);
   AstCompilationUnit* unit = parser->Parse(true);
   unordered_set<string> visited;
   visited.insert(file_name);
   parser->Resolve(unit, visited);
+  parser.reset();
 
   Analyzer* analyzer = new Analyzer(unit);
   analyzer->Analyze();
@@ -69,8 +70,6 @@ int main(int argc, char** argv) {
   } else {
     options.PrintInfo();
   }
-
-  options.CloseFile();
   
   return EXIT_OK;
 }

@@ -1,10 +1,15 @@
+/** 
+ * This file contains the lexical analyzer, used to map varibles in the AST to
+ * an internal representation used for LLVM compilation or for the interpreter.
+ * The internal representation is provided by the class Access.
+ */
 #include <map>
 #include <vector>
+#include "error.h"
 
 /*
  * CONSTRAINTS:
  *   1. Escaping variables are not supported, i.e. (lambda (x) (lambda (y) (+ x y))) is illegal
- * 
  */
 
 using namespace ast;
@@ -29,6 +34,7 @@ namespace cscheme {
       mapping_[">"] = new GlobalAccess("greater", true);
       mapping_["read"] = new GlobalAccess("input", true);
       mapping_["write"] = new GlobalAccess("output", true);
+      ASSERT(counter_ == 0);
     }
 
     void ResetLocalCounter() { counter_ = 0; }
@@ -49,14 +55,16 @@ namespace cscheme {
     }
     
     void AddEntry(IDToken* id, bool local, AstNode* node) {
-      if(mapping_[id->GetText()] != NULL) {
+      ASSERT(counter_ >= 0);
+      auto key = id->GetText();
+      if(mapping_.count(key) != 0) {
 	PrintError(node, "Duplicated variable " + id->GetText());
       }
 
       if(local) {
-	mapping_[id->GetText()] = new LocalAccess(counter_++);
+	mapping_[key] = new LocalAccess(counter_++);
       } else {
-	mapping_[id->GetText()] = new GlobalAccess(id->GetText());
+	mapping_[key] = new GlobalAccess(key);
       }
     }
 

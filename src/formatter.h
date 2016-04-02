@@ -1,3 +1,9 @@
+/** 
+ * This file defines a pretty printer, converting an AST into a formatted
+ * cscheme code, including analysis informations (such as the offset of
+ * local variables in the stack).
+ */
+
 #define TAB "\t"
 #define NOTAB new string("")
 

@@ -5,9 +5,22 @@ if [ $# == "1" ]; then
     echo "Source scheme file not found '$1'"
     exit
   fi
+  DEBUG=""
+  FILE=$1
+elif [ $# == "2" ]; then
+  if ! [ $1 == "--debug" ]; then
+      echo "--debug expected"
+      exit
+  fi
+  if ! [ -e $2 ]; then
+    echo "Source scheme file not found '$2'"
+    exit
+  fi
+  DEBUG="--debug"
+  FILE=$2
 else
-  echo "Usage: fschemec <filename>"
+  echo "Usage: cscheme <filename>"
   exit
 fi
 
-./csc-comp --mode=interpreter $1
+./csc-comp --mode=interpreter $DEBUG $FILE

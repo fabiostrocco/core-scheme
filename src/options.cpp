@@ -1,11 +1,13 @@
-#include "options.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "options.h"
+#include "error.h"
 
-void CommandLineOptions::Init(char *f_name, Mode mode) {
+void CommandLineOptions::Init(char* f_name, Mode mode, bool is_debug) {
   this->f_name_ = f_name; 
   this->file_ = NULL;
   this->mode_ = mode;
+  cscheme::SetDebug(is_debug);
 }
 
 char* CommandLineOptions::GetFileName() { return f_name_; }
@@ -17,16 +19,13 @@ FILE* CommandLineOptions::GetFile() {
   return file_;
 }
 
-void CommandLineOptions::CloseFile() {
-  fclose(file_);
-}
 bool CommandLineOptions::FileExists() { return GetFile() != NULL; }
 bool CommandLineOptions::IsPrintFormatted() { return mode_ == PRINT; }
 bool CommandLineOptions::IsCompileToLLVM() { return mode_ == COMPILE; }
 bool CommandLineOptions::IsPrintInfo() { return mode_ == INFO; }
 bool CommandLineOptions::IsInterpreter() { return mode_ == INTERPRETER; }
 void CommandLineOptions::PrintInfo() {
-  cout << "Usage: fschemec [--phase=option] source" << endl;
+  cout << "Usage: csc-comp [--phase=option] [--debug] source" << endl;
   cout << "Where source is the source program file name";
   cout << "and options includes:" << endl;
   cout << "\t analysis          create lexical analysis results" << endl;

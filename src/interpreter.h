@@ -1,5 +1,5 @@
 /**
- * The following file implements the FScheme interpreter.
+ * The following file implements the cscheme interpreter.
  * Please note that this implementation differs from the compiler in 
  * the following points
 

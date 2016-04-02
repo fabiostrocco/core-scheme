@@ -1,5 +1,4 @@
 #include <map>
-
 #include "parser.h"
 #include "interpreter.h"
 #include "error.h"
@@ -7,7 +6,7 @@
 namespace cscheme {
 
   void Debug(string s) {
-    cout << s << endl; 
+    cout << s << endl;
   }
 
   class AstValue;
@@ -69,6 +68,30 @@ namespace cscheme {
      * a list of arguments.
      */
     virtual AstValue* Eval(RuntimeEnvironmentInt* env, vector<AstValue*> arguments) = 0;
+
+    /** 
+     * Releases this object from the memory, if possible.
+     * 
+     * The memory layout is very simple, as no heap is needed (we have only integers and functions,
+     * and no mutable data structures). Therefore, we just need a simple reference count.
+     */
+    virtual void DeAllocate() = 0;
+
+    virtual void Dereference() {
+      ASSERT(count_ >= 0);
+      if(count_ == 0) {
+	this->DeAllocate();
+      } else {
+	count_--;
+      }
+    }
+    
+    virtual void IncrementCount() {
+      ASSERT(count_ >= 0);
+      count_++;
+    }
+  private:
+    int count_ = 0;
   };
 
   /** 
@@ -76,6 +99,7 @@ namespace cscheme {
    */
   class AstNodeValue : public AstValue { 
   public:
+    ~AstNodeValue() {}
     AstNodeValue(AstNode* node, SimpleAstVisitor* visitor) : 
       inner_node_(node), visitor_(visitor) {}
 
@@ -108,13 +132,11 @@ namespace cscheme {
       string numstr = num->GetNumber()->GetText();
       stringstream str(numstr);
       int res = 0;
-      if (str >> res) {
+      if(str >> res) {
 	return res;
-      } else {
-	Bug("NUMBER token is not a number");
       }
-
-      return -1;
+      Bug("Non numeric input found");
+      return 0;
     }
 
     virtual AstValue* Eval(RuntimeEnvironmentInt* env, vector<AstValue*> arguments) {
@@ -137,6 +159,8 @@ namespace cscheme {
       return static_cast<AstValue*>(result);
     }
 
+    virtual void DeAllocate() { delete this; }
+
   private:
     AstNode* inner_node_;
     SimpleAstVisitor* visitor_;
@@ -148,6 +172,7 @@ namespace cscheme {
   class NumericValue : public AstValue {
   public:
     NumericValue(int number) : number_(number) {}
+    ~NumericValue() {}
 
     virtual bool IsValidCondition() { return true; }
 
@@ -166,6 +191,8 @@ namespace cscheme {
       return NULL; 
     }
 
+    virtual void DeAllocate() { delete this; }
+
   private:
     int number_;
   };
@@ -178,6 +205,9 @@ namespace cscheme {
     UnitValue() {}
 
   public:
+    ~UnitValue() {
+      Bug("Unit value is a singleton, it cannot be destroyed until the end of the interpreter execution");
+    }
     static UnitValue* Create() {
       static UnitValue* instance;
       if(instance == NULL) {
@@ -209,11 +239,16 @@ namespace cscheme {
       PrintError(NULL, "Cannot call the unit value");
       return NULL;
     }
+
+    virtual void DeAllocate() { }
+
   };
 
   class DefaultFunctionValue : public AstValue {
   public:
     DefaultFunctionValue(string name) : name_(name) {}
+    ~DefaultFunctionValue() {}
+
     virtual bool IsValidCondition() { return false;  }
 
     virtual bool IsNumber() { return false; }
@@ -334,6 +369,8 @@ namespace cscheme {
       return false;
     }
 
+    virtual void DeAllocate() { delete this; }
+
   private:
     string name_;
   };
@@ -345,6 +382,7 @@ namespace cscheme {
   class BasePointerValue : public AstValue {
   public:
     BasePointerValue(int value) : value_(value) {}
+    ~BasePointerValue() {}
     int GetValue() { return value_; }
     virtual bool IsValidCondition() {
       return false;
@@ -369,6 +407,8 @@ namespace cscheme {
       Bug("cannot call base pointer value");
       return NULL;
     }
+
+    virtual void DeAllocate() { }
 
   private:
     int value_;
@@ -414,46 +454,59 @@ namespace cscheme {
      * Bind the access passed as parameter with the value passed as parameter.
      */
     void Assign(Access* access, AstValue* node) {
+      ASSERT(bp_ <= sp_);
+      node->IncrementCount();
       if(access->IsGlobal()) {
 	global_[access->GetIdentifier()] = node;
       } else {
 	LocalAccess* loc = static_cast<LocalAccess*>(access);
 	stack_[bp_ + 1 + loc->GetOffset()] = node;
       }
+      ASSERT(bp_ <= sp_)
     }
 
     /*
      * Create a new allocation frame. 
      */
     void CreateAllocationFrame(int size) {
+      ASSERT(bp_ <= sp_)
       if(bp_ + size + 1 >= STACK_SIZE) {
 	PrintError(NULL, "Stack Overflow");
       }
       stack_[sp_ + 1] = new BasePointerValue(bp_);
       bp_ = sp_ + 1;
       sp_ = bp_ + 1 + size;
+      ASSERT(bp_ <= sp_)
     }
 
     /*
      * Destroy an allocation frame.
      */
     void DestroyAllocationFrame() {
-      sp_ = bp_ - 1;
+      ASSERT(bp_ <= sp_);
       BasePointerValue* old_bp = static_cast<BasePointerValue*>(stack_[bp_]);
+      for(int i = bp_ + 1 ; i < sp_ ; i++) {
+	stack_[i]->Dereference();
+      }
+      sp_ = bp_ - 1;
       sp_ = bp_ - 1;
       bp_ = old_bp->GetValue();
+      old_bp->Dereference();
+      ASSERT(bp_ <= sp_)
     }
 
     /*
      * Read and return the value associated with the access given as parameter.
      */
     AstValue* Read(Access* access) {
+      ASSERT(bp_ <= sp_)
       if(access->IsGlobal()) {
 	return global_[access->GetIdentifier()];
       } else {
 	LocalAccess* loc = static_cast<LocalAccess*>(access);
 	return stack_[bp_ + 1 + loc->GetOffset()];
       }
+      ASSERT(bp_ <= sp_)
     }
 
   private:
@@ -462,7 +515,7 @@ namespace cscheme {
     //Function call stack
     AstValue** stack_ = new AstValue*[STACK_SIZE];
     //Stack pointer (always point to the top element of the stack)
-    int sp_ = -1;
+    int sp_ = 0;
     //Base pointer (always point to the first element of the active execution frame)
     int bp_ = 0;
   };
@@ -505,7 +558,8 @@ namespace cscheme {
 
       if(function->IsLambda()) {
 	//Evaluates all the elements in the oreder as they appear in the AST, i.e. from left to right.
-	for(AstExpression* exp : *lambda_application->GetArguments()) {
+        auto args = *lambda_application->GetArguments();
+	for(AstExpression* exp : args) {
 	  arguments.push_back(static_cast<AstValue*>(exp->Accept(this, arg)));
 	}
 

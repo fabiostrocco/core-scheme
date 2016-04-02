@@ -1,4 +1,6 @@
-/* This file contains code to parse and represent the command line option */
+/**
+ * This file contains code to parse and represent the command line option 
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -18,20 +20,21 @@ class CommandLineOptions {
 public:
   CommandLineOptions(int argc, char** argv) {
     if(argc == 1) {
-      Init(NULL, INFO);
+      Init(NULL, INFO, false);
     } else if(argc == 2) {
-      Init(argv[1], COMPILE);
+      Init(argv[1], COMPILE, false);
     } else {
       char* option = argv[1];
-      char* name = argv[2];
+      bool debug = argc == 4 && strcmp(argv[2], "--debug") == 0;
+      char* name = debug ? argv[3] : argv[2];
       if(strcmp(option, "--mode=analysis") == 0) {
-	Init(name, PRINT);
+	Init(name, PRINT, debug);
       } else if(strcmp(option, "--mode=llvm") == 0) {
-	Init(name, COMPILE);
+	Init(name, COMPILE, debug);
       } else if(strcmp(option, "--mode=interpreter") == 0) {
-        Init(name, INTERPRETER);
+        Init(name, INTERPRETER, debug);
       } else {
-	Init(NULL, INFO);
+	Init(NULL, INFO, debug);
       }
     }
   }
@@ -43,12 +46,11 @@ bool IsPrintFormatted();
 bool IsCompileToLLVM();
 bool IsPrintInfo();
 bool IsInterpreter();
-void CloseFile();
 void PrintInfo();
 
 private:
   char* f_name_;
   Mode mode_;
   FILE* file_;
-  void Init(char *f_name, Mode mode);
+  void Init(char *f_name, Mode mode, bool is_debug);
 };

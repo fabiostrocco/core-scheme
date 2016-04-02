@@ -1,3 +1,7 @@
+/** 
+ * This file contains the lexer definition.
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
@@ -28,6 +32,7 @@ namespace cscheme {
     void BackTrack(int units);
     Token* NextToken();
     void PrintError(std::string message);
+    void Close();
 
   private:
     bool Empty(char ch);

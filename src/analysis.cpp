@@ -25,7 +25,7 @@ namespace cscheme {
     //The number of arguments
     int arguments_;
   };
-
+  
   /**
    * Performs lexical analysis.
    */
@@ -34,7 +34,8 @@ namespace cscheme {
     AnalysisVisitor() {}
 
     virtual void* VisitLoadDirective(AstLoadDirective* import, void* arg) {
-      return import->GetProgram()->Accept(this, arg);
+      import->GetProgram()->Accept(this, arg);
+      return NULL;
     }
 
     virtual void* VisitDefinition(AstDefinition* definition, void* arg) {
@@ -52,6 +53,7 @@ namespace cscheme {
     virtual void* VisitVariableExpression(AstVariableExpression* variable_expression, void* arg) {
       Environment* env = static_cast<Environment*>(arg);
       Access* acc = Lookup(variable_expression->GetID()->GetText(), *env, variable_expression);
+      ASSERT(acc != NULL);
       variable_expression->SetAccess(acc);
       return NULL;
     }

@@ -1,14 +1,17 @@
-/* 
-   Syntax
-   -----------------------------------------------------------------------
-   P ::= L* D* e
-   L ::= (load "PATH")
-   D ::= (define x e)
+/** 
+ * This file contains the cscheme parser.
+ */
 
-   e ::= N | x | (lambda (x...x) e) | (e ... e) | (if e e e) | (set! x e)
-
-   default: +,-,*,/,=,<,>,read,write
-
+/**
+ *  Syntax
+ *  -----------------------------------------------------------------------
+ *  P ::= L* D* e
+ *  L ::= (load "PATH")
+ *  D ::= (define x e)
+ *
+ *  e ::= N | x | (lambda (x...x) e) | (e ... e) | (if e e e) | (set! x e)
+ *
+ *  default: +,-,*,/,=,<,>,read,write
 */
 
 #include <string>
@@ -17,6 +20,7 @@
 #include <vector>
 #include <unordered_set>
 #include <list>
+#include <memory>
 #include "lexer.h"
 
 using namespace std;
@@ -24,6 +28,10 @@ using namespace tokens;
 using namespace ast;
 
 namespace cscheme {
+  
+  /* Parser pointer type definition */
+  class Parser;
+  using ParserPtr = shared_ptr<Parser>;
 
   /* Global functions  */
 
@@ -42,9 +50,22 @@ namespace cscheme {
    */
   class Parser {    
   public:
-  Parser(Lexer lexer) : lexer_(lexer) {}
-    
+    ~Parser() {
+      /* The token list will be alive in the AST structure during all the compiler/vm execution,
+       * but the stream referenced by the lexer can be closed.
+       */
+      lexer_.Close();
+    }
+
     AstCompilationUnit* Parse(bool force_main);
+    
+    /**
+     * Creates a parser shared pointer.
+     */
+    static ParserPtr Create(Lexer lexer) {
+      ParserPtr parser(new Parser(lexer));
+      return parser;
+    }
     
     /**
      * Load the libraries (if any) referenced by this compilation unit.
@@ -52,6 +73,8 @@ namespace cscheme {
     void Resolve(AstCompilationUnit* unit, unordered_set<string> visited);
   
   private:
+    Parser(Lexer lexer) : lexer_(lexer) {}
+
     //Parse ID e
     AstDefinition* ParseDefinition(LineInfo info);
 

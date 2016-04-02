@@ -5,17 +5,30 @@ if [ $# == "1" ]; then
     echo "Source scheme file not found '$1'"
     exit
   fi
+  DEBUG=""
+  FILE=$1
+elif [ $# == "2" ]; then
+  if ! [ $1 == "--debug" ]; then
+      echo "--debug expected"
+      exit
+  fi
+  if ! [ -e $2 ]; then
+    echo "Source scheme file not found '$2'"
+    exit
+  fi
+  DEBUG="--debug"
+  FILE=$2
 else
-  echo "Usage: fschemec <filename>"
+  echo "Usage: cschemec <filename>"
   exit
 fi
 
 RUNTIME=./runtime
 
-OUT=$1.generated
+OUT=$FILE.generated
 rm -rf $OUT
 mkdir $OUT
-./csc-comp --mode=llvm $1 2> $OUT/intermediate.ll
+./csc-comp --mode=llvm $DEBUG $FILE 2> $OUT/intermediate.ll
 llvm-link $OUT/intermediate.ll $RUNTIME/rti.ll $RUNTIME/runtime.ll -o $OUT/object.o
 llc -filetype=asm $OUT/object.o
-gcc -O3 $OUT/object.o.s $RUNTIME/gcc-runtime.c -o $1.out
+gcc -O3 $OUT/object.o.s $RUNTIME/gcc-runtime.c -o $FILE.out

@@ -71,73 +71,72 @@ namespace cscheme {
 							   zero,
 							   definition->GetVariable()->GetAccess()->ToString());
 
-      named_values[definition->GetVariable()->GetAccess()->GetIdentifier()] = global_variable;
-      global_variable->setName(definition->GetVariable()->GetAccess()->GetIdentifier());
+      Access* access = definition->GetVariable()->GetAccess();
+      ASSERT(access != NULL);
+      auto identifier = access->GetIdentifier();
+      ASSERT(named_values.count(identifier) == 0);
+      named_values[identifier] = global_variable;
+      global_variable->setName(access->GetIdentifier());
       // Constant Definitions
-      //builder.SetInsertPoint(defBlock);
       Value* value = static_cast<Value*>(definition->GetBody()->Accept(this, NULL));
-      //builder.SetInsertPoint(defBlock);
+      ASSERT(value != NULL);
       builder.CreateStore(value, global_variable);
       return NULL;
     }
-
+    
     /**
      * A number is simply converted into a LLVM int number
      */
     virtual void* VisitNumberExpression(AstNumberExpression* number_expression, void* arg) {
       Value* val = ConstantInt::get(getGlobalContext(),
 				    APInt(32, atoi(number_expression->GetNumber()->GetText().c_str())));
+      ASSERT(val != NULL);
       Value* packed_value = emit_create_call(val, RTI_INTEGER_TYPE);
       return packed_value;
     }
-
+    
     /**
      * A variable reference is converted into the corresponding LLVM variable. The access phase resolve the
      * concrete name (ex. for function is is a variable containing a function pointer, for local variable it is a register)
      */
     virtual void* VisitVariableExpression(AstVariableExpression* variable_expression, void* arg) {
-      Access *access = variable_expression->GetAccess();
+      Access* access = variable_expression->GetAccess();
+      ASSERT(access != NULL);
       string llvm_var_name = access->GetIdentifier();
+      ASSERT(named_values.count(llvm_var_name) == 1);
       Value* llvm_var = named_values[llvm_var_name];
-
-      if (llvm_var != NULL) {
-	//Global access is mutable (set! can be applied to global variables in our language)
-	//therefore a dereference instruction must be generated.
-	if(access->IsGlobal()) {
-	  llvm_var = builder.CreateLoad(llvm_var, llvm_var_name.c_str());
-	}
- 	return llvm_var;
-      } else {
-	PrintError(variable_expression, 
-		   "Unknown variable name "
-		   + variable_expression->GetID()->GetText());
-	return NULL;
+      ASSERT(llvm_var != NULL);
+      
+      //Global access is mutable (set! can be applied to global variables in our language)
+      //therefore a dereference instruction must be generated.
+      if(access->IsGlobal()) {
+	llvm_var = builder.CreateLoad(llvm_var, llvm_var_name.c_str());
       }
+      return llvm_var;
     }
-
+    
     virtual void* VisitLambdaAbstraction(AstLambdaAbstraction* lambda_expression, void* arg) {
       BasicBlock *current_block = builder.GetInsertBlock();
       /*----------------------- STEP 1: Create function signature -------------------------------*/
 
-      // Make the function type: (int x ... x int) -> int where the number of input type is the same
-      // as the arity
-      vector<Type*> Doubles(lambda_expression->GetParameters()->size(), data_type);
+      //Make the function type: (int x ... x int) -> int where the number of input type is the same
+      //as the arity
+      auto params = lambda_expression->GetParameters();
+      ASSERT(params != NULL);
+      vector<Type*> Doubles(params->size(), data_type);
       FunctionType* f_type = FunctionType::get(data_type,
 					       Doubles, false);
       //Create the function
       Function* fun = Function::Create(f_type, Function::ExternalLinkage, "inline_function", module);
 
-      // If F already has a body, reject this
+      //If F already has a body, reject this.
       //That should never happen, it would be a bug
-      if (!fun->empty()) {
-	Bug("redefinition of function");
-	return 0;
-      }
+      ASSERT(fun->empty());
 
-      // Set names for all arguments.
+      //Set names for all arguments.
       unsigned idx = 0;
-      std::list<AstVariableExpression*>::iterator it = lambda_expression->GetParameters()->begin();
-      for (Function::arg_iterator ai = fun->arg_begin(); idx != lambda_expression->GetParameters()->size();
+      std::list<AstVariableExpression*>::iterator it = params->begin();
+      for (Function::arg_iterator ai = fun->arg_begin(); idx != params->size();
 	   ++ai, ++idx) {
 	ai->setName((*it)->GetAccess()->ToString());
 	// Add arguments to variable symbol table.
@@ -151,6 +150,7 @@ namespace cscheme {
       //Set the current block where to generate instructions as the entry block
       builder.SetInsertPoint(ret_block);
       Value* ret_val = static_cast<Value*>(lambda_expression->GetBody()->Accept(this, NULL));
+      ASSERT(ret_val != NULL);
       //Create return "retVal" instruction
       builder.CreateRet(ret_val);
       //Just a sanity check to catch bug in the compiler (if the code generation is wrong)
@@ -168,11 +168,14 @@ namespace cscheme {
       //Evaluate call site
       AstExpression* function_expression = lambda_application->GetFunction();
       Value* llvm_function = static_cast<Value*>(function_expression->Accept(this, NULL));
+      ASSERT(llvm_function != NULL);
       vector<Value*> llvm_arguments;
 
       //Evaluate function arguments
       for(AstExpression* exp : *(lambda_application->GetArguments())) {
-	llvm_arguments.push_back(static_cast<Value*>(exp->Accept(this, NULL)));
+	auto argument = static_cast<Value*>(exp->Accept(this, NULL));
+	ASSERT(argument != NULL);
+	llvm_arguments.push_back(argument);
       }
 
       /*----------------------- STEP 2: Build the function type -------------------------------*/
@@ -224,6 +227,7 @@ namespace cscheme {
       //compareRes contains the comparison result
       Value* compare_res = static_cast<Value*>(builder.CreateICmpEQ(cond_unpacked,
 								    ConstantInt::get(getGlobalContext(), APInt(32, 0)), "ifcond"));
+      ASSERT(compare_res != NULL);
 
       //Get the current enclosing function, where to add the if-then-else basic blocks
       Function* enclosing_function = builder.GetInsertBlock()->getParent();
@@ -250,6 +254,7 @@ namespace cscheme {
 
       //Populates the then branch
       Value* then_value = static_cast<Value*>(if_expression->GetTrueBranch()->Accept(this, arg));
+      ASSERT(then_value != NULL);
       //builder.SetInsertPoint(thenBranch);
       //Creates jump to merge branch (then end)
       builder.CreateBr(merge_branch);
@@ -261,6 +266,7 @@ namespace cscheme {
       enclosing_function->getBasicBlockList().push_back(else_branch);
       builder.SetInsertPoint(else_branch);
       Value* else_value = static_cast<Value*>(if_expression->GetFalseBranch()->Accept(this, arg));
+      ASSERT(else_value != NULL);
       //builder.SetInsertPoint(else_branch);
       builder.CreateBr(merge_branch);
       // Codegen of 'Else' can change the current block, update elseBranch for the PHI.
@@ -282,12 +288,13 @@ namespace cscheme {
     virtual void* VisitSetExpression(AstSetExpression* set_expression, void* arg) {
       Access* access = set_expression->GetVariable()->GetAccess();
       if(!access->IsGlobal()) {
-	PrintError(set_expression, "set! is only allowed for global variables");
+	PrintError(set_expression, "the compiler only allows set! for global variables");
       }
 
       string id = access->GetIdentifier();
       Value* var = named_values[id];
       Value* value = static_cast<Value*>(set_expression->GetValue()->Accept(this, NULL));
+      ASSERT(value != NULL);
       builder.CreateStore(value, var);
       Value* result = emit_create_call(Constant::getNullValue(IntegerType::getInt32Ty(getGlobalContext())), RTI_UNIT_TYPE);
       return result;

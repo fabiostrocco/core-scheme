@@ -131,8 +131,11 @@ namespace cscheme {
    * Load the libraries (if any) referenced by this compilation unit.
    */
   void Parser::Resolve(AstCompilationUnit* unit, unordered_set<string> visited) {
+    ASSERT(unit != NULL);
     list<AstLoadDirective*>* imports = unit->GetImports();
+    ASSERT(imports != NULL);
     for(AstLoadDirective* import : *imports) {
+      ASSERT(import != NULL);
       string path = import->GetPath();
       if(visited.count(path) != 0) {
 	lexer_.PrintError("Cyclic reference " + path);
@@ -140,10 +143,11 @@ namespace cscheme {
       visited.insert(path);
       FILE* source = import->GetFile();
       Lexer lexer = Lexer(source, path);
-      Parser* parser = new Parser(lexer);
+      ParserPtr parser = Parser::Create(lexer);
       AstCompilationUnit* lib = parser->Parse(false);
       import->SetProgram(lib);
       parser->Resolve(lib, visited);
+      parser.reset();
     }
   }
 

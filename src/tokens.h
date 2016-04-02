@@ -1,3 +1,8 @@
+/** 
+ * This file contains the list the token definitions and some auxiliary methods for tokens,
+ * such as the representation of the token location.
+ */
+
 #include <string>
 #include <iostream>
 

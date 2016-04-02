@@ -12,6 +12,9 @@ namespace cscheme {
   class FormatterVisitor : public SimpleAstVisitor {
   public:
     FormatterVisitor() {}
+    ~FormatterVisitor() {
+      DeleteStrings();
+    }
 
     virtual void* VisitLoadDirective(AstLoadDirective* import, void* arg) {
       cout << "Import: " << import->GetPath() << endl;
@@ -22,7 +25,7 @@ namespace cscheme {
 
     virtual void* VisitDefinition(AstDefinition* definition, void* arg) {
       string* args = static_cast<string*>(arg);
-      string* tab = new string(*args + TAB);
+      string* tab = CreateString(*args + TAB);
       PrintCode("(define " + definition->GetVariable()->GetID()->GetText() + " ");
       PrintIndent(tab);
       definition->GetBody()->Accept(this, tab);
@@ -53,7 +56,7 @@ namespace cscheme {
 	index++;
       }
 
-      string* tab = new string((*args) + TAB);
+      string* tab = CreateString((*args) + TAB);
       PrintCode(")");
       PrintIndent(tab);
       lambda_expression->GetBody()->Accept(this, tab);
@@ -78,7 +81,7 @@ namespace cscheme {
 
     virtual void* VisitIfExpression(AstIfExpression* if_expression, void* arg) {
       string* args = static_cast<string*>(arg);
-      string* tab = new string(*args + "    ");
+      string* tab = CreateString(*args + "    ");
       PrintCode("(if ");
       if_expression->GetCondition()->Accept(this, args);
       PrintIndent(tab);
@@ -99,15 +102,31 @@ namespace cscheme {
       return NULL;
     }
 
+    // Creates a string, scheduled for garbage collection with DeleteStrings()
+    string* CreateString(string str) {
+      string* str_ptr = new string(str);
+      strings_.push_back(str_ptr);
+      return str_ptr;
+    }
+
   private:
     void PrintCode(string st) { cout << st; }
     void PrintIndent(string* tab) { cout << endl << *tab; }
-
+    // Every created string will be garbage collected after the visitor termination
+    vector<string*> strings_;
+    // String garbage collection
+    void DeleteStrings() {
+      for(string* str : strings_) {
+	delete str;
+      }
+    }
+    
   };
 
   void Formatter::Print()  {
     FormatterVisitor* visitor = new FormatterVisitor();
-    unit_->Accept(visitor, new string(""));
+    unit_->Accept(visitor, visitor->CreateString(""));
+    delete visitor;
   }
 
 };

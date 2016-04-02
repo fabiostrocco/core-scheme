@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "lexer.h"
 #include "error.h"
 
 namespace cscheme {
   
   Token* Lexer::CurrentToken() {
+    ASSERT(track_ == 1 || track_ == 2);
     if(track_ == 1) {
       return p_token_;
     } else if(track_ == 2) {
@@ -17,27 +17,25 @@ namespace cscheme {
   };
   
   void Lexer::BackTrack(int units) {
+    ASSERT(units <= 2 && units >= 0);
     track_ += units;
+    ASSERT(track_ <= 2);
   }
 
   Token* Lexer::NextToken() {
+    ASSERT(pos_ >= 0);
+    ASSERT(line_ >= 0);
     if(track_ == 1) {
       track_ = 0;
-      if(p_token_ == NULL) {
-	Bug("p_token_ is null");
-      }
+      ASSERT(p_token_ != NULL);
       return p_token_;
     } else if(track_ == 2) {
       track_ = 1;
-      if(pp_token_ == NULL) {
-	Bug("pp_token_ is null");
-      }
+      ASSERT(p_token_ != NULL);
       return pp_token_;
     }
 
-    if(track_ != 0) {
-      Bug("wrong backtracking");
-    }
+    ASSERT(track_ == 0);
 
     char curr_char;
     string curr_token = "";
@@ -59,7 +57,6 @@ namespace cscheme {
 	}
 	curr_char = Eat();
       }
-
     } while(Empty(curr_char));
 
     if(curr_char == EOF) {
@@ -125,6 +122,10 @@ namespace cscheme {
   void Lexer::PrintError(std::string message) {
     cerr << prefix_ << ":" << line_ << ":" << pos_ << ": error: " << message << endl;
     exit(EXIT_LEXER_ERROR);
+  }
+
+  void Lexer::Close() {
+    fclose(source_);
   }
 
   bool Lexer::Empty(char ch) {

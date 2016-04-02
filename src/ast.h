@@ -1,3 +1,8 @@
+/** 
+ * This file contains the AST, Visitor, and Access definitions (the latter mapping variables to
+ * an internal representation suitable for intermediate languages).
+ */
+
 #include <string>
 #include <list>
 #include <vector>
@@ -40,7 +45,15 @@ namespace ast {
 
   /**
    * Specifies an access to a variable, that is
-   * how to access to such variable from LLVM.
+   * how to access to such variable from LLVM or the interpreter.
+   *
+   * There are three kinds of access
+   * 1. Local variables: each local variable has a numeric access, representing its
+   *    offset in the stack
+   * 2. Global access: each global variable has a string access, representing a
+   *    suitable name for an intermediate language, such as LLVM, or an interpreter.
+   * 3. External access: like global access, but the variable is not defined in the AST;
+   *    it is a predefined variable (such as the write and read functions) instead.
    */
   class Access {
   public:
